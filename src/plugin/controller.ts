@@ -1,18 +1,3 @@
-// figma.variables.
-//    getLocalVariableCollectionsAsync(): Promise<VariableCollection[]>
-//      .variableIds: string[]
-//
-//    getLocalVariablesAsync(type?: VariableResolvedDataType): Promise<Variable[]>
-//
-// figma.loadAllPagesAsync(): Promise<void>
-//
-// figma.root.findAllWithCriteria<T extends NodeType[]>(criteria: FindAllCriteria<T>):
-//                                Array<{ type: T[number] } & (PageNode | SceneNode)>
-//
-// node.boundVariables -> { []}
-//
-// node.setBoundVariable(field, otherVar)
-
 figma.showUI(__html__, {
   width: 500,
   height: 500,
@@ -20,6 +5,7 @@ figma.showUI(__html__, {
 
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'page-state') {
+    // play();
     await postState();
   } else if (msg.type === 'replace') {
     if (msg.from === msg.to) return;
@@ -42,10 +28,52 @@ figma.ui.onmessage = async (msg) => {
   }
 };
 
+async function play() {
+  console.log('xxx');
+  const teamCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+  console.log('a', teamCollections);
+
+  const nodes = figma.currentPage
+    .findAllWithCriteria({
+      types: [
+        'TEXT',
+        'HIGHLIGHT',
+        'BOOLEAN_OPERATION',
+        'FRAME',
+        'COMPONENT',
+        'COMPONENT_SET',
+        'STAR',
+        'RECTANGLE',
+        'POLYGON',
+        'ELLIPSE',
+        'INSTANCE',
+        'VECTOR',
+        'LINE',
+        'TABLE',
+        'WASHI_TAPE',
+        'SECTION',
+        'STICKY',
+        'STAMP',
+        'SHAPE_WITH_TEXT',
+        'CONNECTOR',
+      ],
+    })
+    .filter((node) => {
+      return node.boundVariables;
+    });
+
+  for (const node of nodes) {
+    if (node.type === 'RECTANGLE') {
+      console.log(node.fills);
+    }
+  }
+}
+
 async function postState() {
-  const [variableCollections, allColorVariables] = await Promise.all([
+  const [variableCollections, allColorVariables, teamCollections] = await Promise.all([
     figma.variables.getLocalVariableCollectionsAsync(),
     figma.variables.getLocalVariablesAsync('COLOR'),
+    figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(),
   ]);
 
   const result: PageLoadState = {};
@@ -70,6 +98,24 @@ async function postState() {
     if (result[key].variables.length === 0) {
       delete result[key];
     }
+  }
+
+  const teamVariables = await Promise.all(
+    teamCollections.map((collection) => figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key))
+  );
+
+  for (let i = 0; i < teamCollections.length; ++i) {
+    const collection = teamCollections[i];
+    const vars = teamVariables[i];
+    result[collection.key] = {
+      name: collection.name,
+      variables: vars
+        .filter((v) => v.resolvedType === 'COLOR')
+        .map((v) => ({
+          id: v.key,
+          name: v.name,
+        })),
+    };
   }
 
   figma.ui.postMessage({

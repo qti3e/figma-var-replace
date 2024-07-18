@@ -6,15 +6,17 @@ declare module '*.svg' {
 type CollectionId = string;
 
 interface PageLoadState {
-  [id: CollectionId]: Collection
+  [id: CollectionId]: Collection;
 }
 
 interface Collection {
-  name: String,
-  variables: PVariable[]
+  name: string;
+  /// Name of the library this collection belongs to.
+  library?: string;
+  variables: PVariable[];
 }
 
 interface PVariable {
-  id: string,
-  name: string,
+  id: string;
+  name: string;
 }
